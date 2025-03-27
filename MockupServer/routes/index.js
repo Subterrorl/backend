@@ -17,7 +17,7 @@ router.get('/phonelist', function(req, res, next) {
 
 router.get('/phonedata', function(req, res, next) {
 
-  const sql = "SELECT phonedata._id ,phonedata.title , phonedata.price,itemtype.typename FROM phonedata JOIN itemtype ON phonedata.item_type_id = itemtype.id";
+  const sql = "SELECT phonedata._id, phonedata.title, phonedata.price, itemtype.typename AS typename, itemtype.discount FROM phonedata JOIN itemtype ON phonedata.item_type_id = itemtype.id";
 
   const db = getDatabaseConnection("phonelistdata");
 
@@ -81,12 +81,12 @@ router.put('/editphonedata', function(req, res, next){
 router.post('/savephonedata', function (req, res) {
   console.log("Received Request");
 
-  const { _id, title, price } = req.body;
+  const { _id, title, price, item_type_id } = req.body;
 
   console.log("Received data:", req.body);
 
-  if (!title || !price) {
-    return res.status(400).json({ error: "กรุณาระบุ title และ price" });
+  if (!title || !price || !item_type_id) {
+    return res.status(400).json({ error: "กรุณาระบุ title, price และ item_type_id" });
   }
 
   const db = getDatabaseConnection("phonelistdata");
@@ -94,8 +94,8 @@ router.post('/savephonedata', function (req, res) {
   // ตรวจสอบ
   if (_id) {
     // ถ้ามี _id -> อัปเดตข้อมูล
-    const updateSql = "UPDATE phonedata SET title = ?, price = ? WHERE _id = ?";
-    db.query(updateSql, [title, price, _id], (err, updateResult) => {
+    const updateSql = "UPDATE phonedata SET title = ?, price = ?, item_type_id = ? WHERE _id = ?";
+    db.query(updateSql, [title, price, item_type_id, _id], (err, updateResult) => {
         if (err) {
             console.error("Error updating data:", err);
             return res.status(500).json({ error: err.message });
@@ -104,21 +104,21 @@ router.post('/savephonedata', function (req, res) {
     });
   } else {
     // ถ้าไม่มี _id -> เพิ่มข้อมูลใหม่
-    const insertSql = "INSERT INTO phonedata (title, price) VALUES (?, ?)";
-    db.query(insertSql, [title, price], (err, insertResult) => {
+    const insertSql = "INSERT INTO phonedata (title, price, item_type_id) VALUES (?, ?, ?)";
+    db.query(insertSql, [title, price, item_type_id], (err, insertResult) => {
         if (err) {
             console.error("Error inserting data:", err);
             return res.status(500).json({ error: err.message });
         }
         return res.json({ 
             message: "เพิ่มข้อมูลใหม่สำเร็จ", 
-            data: { id: insertResult.insertId, title, price } 
+            data: { id: insertResult.insertId, title, price, item_type_id } 
         });
     });
   }
-
-  
 });
+
+
 
 
 router.delete('/deletephonedata/:id', (req, res) => {
@@ -132,8 +132,7 @@ router.delete('/deletephonedata/:id', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
 
-    // log to check the result from SQL query
-    console.log("Delete result:", result);
+    console.log("Delete result");
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "ไม่พบข้อมูลที่ต้องการลบ" });
@@ -142,6 +141,19 @@ router.delete('/deletephonedata/:id', (req, res) => {
     res.json({ message: "ลบข้อมูลสำเร็จ จาก backend1" });
   });
 });
+
+router.get("/get-itemtypes", (req, res) => {
+  const db = getDatabaseConnection("phonelistdata");
+  const sql = "SELECT id, typename FROM itemtype";
+  db.query(sql, (err, results) => {
+      if (err) {
+          console.error("Error fetching item types:", err);
+          return res.status(500).json({ error: err.message });
+      }
+      res.json(results);
+  });
+});
+
 
 function getDatabaseConnection(databasename){
 
