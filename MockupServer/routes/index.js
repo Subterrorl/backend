@@ -17,7 +17,17 @@ router.get('/phonelist', function(req, res, next) {
 
 router.get('/phonedata', function(req, res, next) {
 
-  const sql = "SELECT phonedata._id, phonedata.title, phonedata.price, itemtype.typename AS typename, itemtype.discount FROM phonedata JOIN itemtype ON phonedata.item_type_id = itemtype.id";
+  const sql = `
+    SELECT 
+        phonedata._id, 
+        phonedata.title, 
+        phonedata.price, 
+        phonedata.item_type_id,  -- เพิ่ม item_type_id จาก phonedata
+        itemtype.typename AS typename, 
+        itemtype.discount 
+    FROM phonedata 
+    JOIN itemtype ON phonedata.item_type_id = itemtype.id
+`;
 
   const db = getDatabaseConnection("phonelistdata");
 
@@ -103,9 +113,21 @@ router.post('/savephonedata', function (req, res) {
         return res.json({ message: "อัปเดตข้อมูลสำเร็จ", data: updateResult });
     });
   } else {
-    // ถ้าไม่มี _id -> เพิ่มข้อมูลใหม่
-    const insertSql = "INSERT INTO phonedata (title, price, item_type_id) VALUES (?, ?, ?)";
-    db.query(insertSql, [title, price, item_type_id], (err, insertResult) => {
+    // ตรวจสอบว่าชื่อซ้ำหรือไม่
+      const checkDuplicateSql = "SELECT * FROM phonedata WHERE title = ?";
+      db.query(checkDuplicateSql, [title], (err, results) => {
+      if (err) {
+          console.error("Error checking duplicate:", err);
+          return res.status(500).json({ error: err.message });
+      }
+
+      if (results.length > 0) {
+          return res.status(400).json({ error: "มีชื่อโทรศัพท์นี้อยู่แล้วในระบบ" });
+      }
+
+      
+      const insertSql = "INSERT INTO phonedata (title, price, item_type_id) VALUES (?, ?, ?)";
+      db.query(insertSql, [title, price, item_type_id], (err, insertResult) => {
         if (err) {
             console.error("Error inserting data:", err);
             return res.status(500).json({ error: err.message });
@@ -114,6 +136,7 @@ router.post('/savephonedata', function (req, res) {
             message: "เพิ่มข้อมูลใหม่สำเร็จ", 
             data: { id: insertResult.insertId, title, price, item_type_id } 
         });
+      });
     });
   }
 });
